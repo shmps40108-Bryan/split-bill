@@ -1,0 +1,783 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>吃飽分帳｜聚餐自動分帳小工具</title>
+<style>
+  :root {
+    --bg: #fff8f0;
+    --card: #ffffff;
+    --ink: #2d2a26;
+    --muted: #8a8279;
+    --line: #eee3d6;
+    --brand: #ff7a45;
+    --brand-dark: #e85f2a;
+    --good: #2f9e6b;
+    --bad: #d9480f;
+    --chip: #fff1e6;
+  }
+  * { box-sizing: border-box; }
+  [hidden] { display: none !important; }
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--ink);
+    font-family: "Noto Sans TC", "PingFang TC", "Microsoft JhengHei", system-ui, sans-serif;
+    line-height: 1.6;
+  }
+  header {
+    background: linear-gradient(135deg, #ff9a5a, #ff6b3d);
+    color: #fff;
+    padding: 28px 16px 24px;
+    text-align: center;
+  }
+  header h1 { margin: 0; font-size: 1.9rem; letter-spacing: 2px; }
+  header p { margin: 6px 0 0; opacity: .92; font-size: .95rem; }
+  main { max-width: 760px; margin: 0 auto; padding: 16px; }
+  .card {
+    background: var(--card);
+    border: 1px solid var(--line);
+    border-radius: 16px;
+    padding: 18px;
+    margin-bottom: 16px;
+    box-shadow: 0 2px 8px rgba(120, 80, 40, .05);
+  }
+  .card h2 { margin: 0 0 12px; font-size: 1.15rem; display: flex; align-items: center; gap: 8px; }
+  .step {
+    display: inline-flex; align-items: center; justify-content: center;
+    width: 26px; height: 26px; border-radius: 50%;
+    background: var(--brand); color: #fff; font-size: .85rem; font-weight: 700;
+  }
+  .row { display: flex; gap: 8px; flex-wrap: wrap; }
+  .row > * { flex: 1 1 140px; min-width: 0; }
+  label { display: block; font-size: .85rem; color: var(--muted); margin-bottom: 4px; }
+  input[type=text], input[type=number], select {
+    width: 100%; padding: 10px 12px; font-size: 1rem;
+    border: 1px solid var(--line); border-radius: 10px; background: #fff; color: var(--ink);
+    font-family: inherit;
+  }
+  input:focus, select:focus { outline: 2px solid #ffc9a8; border-color: var(--brand); }
+  button {
+    font-family: inherit; font-size: 1rem; cursor: pointer;
+    border: none; border-radius: 10px; padding: 10px 16px;
+    background: var(--brand); color: #fff; font-weight: 600;
+  }
+  button:hover { background: var(--brand-dark); }
+  button.ghost { background: transparent; color: var(--brand-dark); border: 1px solid #ffc9a8; }
+  button.ghost:hover { background: var(--chip); }
+  button.small { padding: 4px 10px; font-size: .85rem; }
+  .field { margin-bottom: 12px; }
+  .chips { display: flex; flex-wrap: wrap; gap: 8px; }
+  .chip {
+    display: inline-flex; align-items: center; gap: 2px;
+    background: var(--chip); border: 1px solid #ffd9bf; border-radius: 999px;
+    padding: 5px 6px 5px 14px; font-size: .95rem;
+  }
+  .chip button {
+    background: transparent; color: var(--muted); padding: 0 6px; font-size: 1rem; line-height: 1;
+  }
+  .chip button:hover { background: transparent; color: var(--bad); }
+  .chip button[data-rename]:hover { color: var(--brand-dark); }
+  .pick {
+    cursor: pointer; user-select: none;
+    border: 1px solid var(--line); border-radius: 999px; padding: 6px 14px;
+    background: #fff; color: var(--muted); font-size: .95rem;
+  }
+  .pick input { display: none; }
+  .pick.on { background: var(--brand); border-color: var(--brand); color: #fff; }
+  .hint { font-size: .85rem; color: var(--muted); margin: 6px 0 0; }
+  .empty { color: var(--muted); text-align: center; padding: 14px 0; font-size: .95rem; }
+  .expense {
+    display: flex; justify-content: space-between; align-items: flex-start; gap: 10px;
+    padding: 12px 0; border-bottom: 1px dashed var(--line);
+  }
+  .expense:last-child { border-bottom: none; }
+  .expense .title { font-weight: 600; }
+  .expense .meta { font-size: .85rem; color: var(--muted); }
+  .expense .amt { text-align: right; white-space: nowrap; font-weight: 700; }
+  .expense .amt small { display: block; font-weight: 400; color: var(--muted); }
+  .expense .acts { margin-top: 4px; display: flex; gap: 6px; justify-content: flex-end; }
+  .check { display: flex; align-items: center; gap: 8px; font-size: .95rem; color: var(--ink); cursor: pointer; }
+  .check input { width: 18px; height: 18px; accent-color: var(--brand); }
+  table { width: 100%; border-collapse: collapse; font-size: .95rem; }
+  th, td { padding: 8px 6px; text-align: right; border-bottom: 1px solid var(--line); }
+  th:first-child, td:first-child { text-align: left; }
+  th { color: var(--muted); font-weight: 500; font-size: .85rem; }
+  .pos { color: var(--good); font-weight: 700; }
+  .neg { color: var(--bad); font-weight: 700; }
+  .transfer {
+    display: flex; align-items: center; justify-content: space-between; gap: 10px;
+    background: var(--chip); border-radius: 12px; padding: 12px 14px; margin-top: 8px;
+  }
+  .transfer.done { opacity: .5; text-decoration: line-through; }
+  .transfer .who { font-weight: 600; }
+  .transfer .arrow { color: var(--brand-dark); margin: 0 6px; }
+  .transfer .money { font-weight: 700; white-space: nowrap; }
+  .total { font-size: 1.05rem; margin: 0 0 10px; }
+  .total b { color: var(--brand-dark); font-size: 1.3rem; }
+  .toolbar { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 14px; }
+  .share { border-color: #ffd9bf; background: #fffaf5; }
+  .share p { margin: 0 0 10px; font-size: .95rem; }
+  .status { font-weight: 600; }
+  .roomcode {
+    font-family: ui-monospace, Consolas, monospace; background: var(--chip);
+    padding: 2px 8px; border-radius: 6px; letter-spacing: 1px;
+  }
+  #toast {
+    position: fixed; left: 50%; bottom: 24px; transform: translateX(-50%) translateY(20px);
+    background: #2d2a26; color: #fff; padding: 10px 18px; border-radius: 999px;
+    font-size: .95rem; opacity: 0; pointer-events: none; transition: all .25s; max-width: 90vw;
+  }
+  #toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+  footer { text-align: center; color: var(--muted); font-size: .8rem; padding: 8px 16px 32px; }
+</style>
+</head>
+<body>
+
+<header>
+  <h1>🍜 吃飽分帳</h1>
+  <p>聚餐、出遊誰先付錢都沒關係，一鍵算出誰該給誰多少</p>
+</header>
+
+<main>
+  <section class="card share">
+    <h2>👥 大家一起填</h2>
+    <div id="shareOff">
+      <p>建立共享房間後把連結傳到群組，每個人用自己的手機填自己吃的，所有人的畫面會即時同步。</p>
+      <button type="button" id="roomCreate">建立共享房間</button>
+    </div>
+    <div id="shareOn" hidden>
+      <p><span class="status" id="roomStatus">連線中…</span>　房間代碼 <span class="roomcode" id="roomCode"></span></p>
+      <div class="toolbar" style="margin-top:0">
+        <button type="button" id="roomCopy">🔗 複製邀請連結</button>
+        <button type="button" class="ghost" id="roomLeave">離開房間</button>
+      </div>
+      <p class="hint">拿到連結的人都能看到並修改這個房間的內容，請不要填入敏感資料。</p>
+    </div>
+  </section>
+
+  <section class="card">
+    <h2><span class="step">1</span>有誰一起吃？</h2>
+    <form id="memberForm" class="row">
+      <input type="text" id="memberName" placeholder="輸入名字，例如：小明" maxlength="12" autocomplete="off">
+      <button type="submit" style="flex:0 0 auto">加入</button>
+    </form>
+    <div id="memberList" class="chips" style="margin-top:12px"></div>
+    <p class="hint">按 ✎ 可以改名，按 × 可以移除。</p>
+  </section>
+
+  <section class="card">
+    <h2><span class="step">2</span><span id="formTitle">新增一筆消費</span></h2>
+    <form id="expenseForm">
+      <div class="row">
+        <div class="field">
+          <label for="expTitle">品項</label>
+          <input type="text" id="expTitle" placeholder="例如：火鍋" maxlength="20" autocomplete="off">
+        </div>
+        <div class="field">
+          <label for="expAmount">金額</label>
+          <input type="number" id="expAmount" placeholder="0" min="0" step="any" inputmode="decimal">
+        </div>
+      </div>
+      <div class="row">
+        <div class="field">
+          <label for="expCurrency">幣別</label>
+          <select id="expCurrency">
+            <option value="TWD">TWD 新台幣</option>
+            <option value="JPY">JPY 日圓</option>
+            <option value="USD">USD 美元</option>
+            <option value="KRW">KRW 韓元</option>
+            <option value="EUR">EUR 歐元</option>
+            <option value="HKD">HKD 港幣</option>
+            <option value="THB">THB 泰銖</option>
+          </select>
+        </div>
+        <div class="field" id="rateField" hidden>
+          <label for="expRate">匯率（1 <span id="rateCode"></span> = ? 台幣）</label>
+          <input type="number" id="expRate" min="0" step="any" inputmode="decimal">
+        </div>
+        <div class="field">
+          <label for="expPayer">誰先付的？</label>
+          <select id="expPayer"></select>
+        </div>
+      </div>
+      <p class="hint" id="rateHint" hidden></p>
+      <div class="field">
+        <label>誰有吃？（點選切換，預設全員平分）</label>
+        <div id="expParticipants" class="chips"></div>
+      </div>
+      <div class="row">
+        <div class="field">
+          <label for="expService">服務費</label>
+          <select id="expService">
+            <option value="0">沒有服務費</option>
+            <option value="5">5%</option>
+            <option value="10">10%</option>
+            <option value="15">15%</option>
+            <option value="custom">自訂…</option>
+          </select>
+        </div>
+        <div class="field" id="serviceCustomField" hidden>
+          <label for="expServiceCustom">自訂服務費（%）</label>
+          <input type="number" id="expServiceCustom" min="0" max="100" step="any" inputmode="decimal" placeholder="例如：12">
+        </div>
+      </div>
+      <div class="row">
+        <button type="submit" id="expSubmit">加入這筆</button>
+        <button type="button" class="ghost" id="expCancel" hidden>取消編輯</button>
+      </div>
+    </form>
+  </section>
+
+  <section class="card">
+    <h2><span class="step">3</span>消費明細</h2>
+    <div id="expenseList"></div>
+  </section>
+
+  <section class="card">
+    <h2><span class="step">4</span>結算結果</h2>
+    <div id="result"></div>
+    <div class="toolbar">
+      <button type="button" id="copyBtn">📋 複製結算文字</button>
+      <button type="button" class="ghost" id="demoBtn">載入範例</button>
+      <button type="button" class="ghost" id="resetBtn">全部清空</button>
+    </div>
+  </section>
+</main>
+
+<footer>資料存在你的瀏覽器中；使用共享房間時會經由公開的 broker.emqx.io 同步 · 匯率來源：open.er-api.com</footer>
+<div id="toast"></div>
+
+<script src="https://unpkg.com/mqtt@5.10.1/dist/mqtt.min.js"></script>
+<script>
+const STORAGE_KEY = 'split-bill-v2';
+const RATE_KEY = 'split-bill-rates-v1';
+const RATE_API = 'https://open.er-api.com/v6/latest/TWD';
+const BROKER = 'wss://broker.emqx.io:8084/mqtt';
+const SERVICE_PRESETS = [0, 5, 10, 15];
+
+// 每筆成員／消費都帶有 c（建立時間）、t（最後修改時間）、del（已刪除），多人同步時以 t 較新者為準
+let state = { members: [], expenses: [], settled: {} };
+let room = (location.hash.match(/room=([a-z0-9]+)/) || [])[1] || '';
+let client = null;
+let pubTimer = null;
+let rates = null;        // { JPY: 1 JPY 可換多少 TWD, ... }
+let rateDate = '';
+let editingId = null;
+let picked = new Set();  // 表單中目前勾選的分攤成員
+
+const $ = id => document.getElementById(id);
+const uid = () => Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
+const now = () => Date.now();
+const esc = s => String(s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+const money = n => 'NT$ ' + Math.round(n).toLocaleString('zh-TW');
+const live = list => list.filter(x => !x.del);
+const members = () => live(state.members);
+const expenses = () => live(state.expenses);
+const nameOf = id => (state.members.find(m => m.id === id) || {}).name || '（已移除）';
+const servicePct = e => e.service === true ? 10 : (+e.service || 0);
+
+function toast(msg) {
+  const t = $('toast');
+  t.textContent = msg;
+  t.classList.add('show');
+  clearTimeout(toast.timer);
+  toast.timer = setTimeout(() => t.classList.remove('show'), 2200);
+}
+
+/* ---------- 儲存與合併 ---------- */
+const storageKey = () => STORAGE_KEY + (room ? ':' + room : '');
+
+function mergeList(a, b) {
+  const map = new Map(a.map(x => [x.id, x]));
+  for (const y of b) {
+    if (!y || typeof y.id !== 'string') continue;
+    const x = map.get(y.id);
+    const newer = !x || (y.t || 0) > (x.t || 0)
+      || ((y.t || 0) === (x.t || 0) && JSON.stringify(y) > JSON.stringify(x));
+    if (newer) map.set(y.id, y);
+  }
+  return [...map.values()].sort((p, q) => (p.c || 0) - (q.c || 0) || (p.id < q.id ? -1 : 1));
+}
+
+function mergeState(a, b) {
+  const settled = {};
+  for (const src of [a.settled || {}, b.settled || {}]) {
+    for (const k of Object.keys(src)) {
+      const y = src[k], x = settled[k];
+      if (!y || typeof y !== 'object') continue;
+      if (!x || (y.t || 0) > (x.t || 0) || ((y.t || 0) === (x.t || 0) && y.v && !x.v)) settled[k] = { v: !!y.v, t: y.t || 0 };
+    }
+  }
+  const sorted = {};
+  for (const k of Object.keys(settled).sort()) sorted[k] = settled[k];
+  return {
+    members: mergeList(a.members || [], b.members || []),
+    expenses: mergeList(a.expenses || [], b.expenses || []),
+    settled: sorted
+  };
+}
+
+const EMPTY = { members: [], expenses: [], settled: {} };
+const normalize = s => mergeState(EMPTY, s);
+
+function save() {
+  state = normalize(state);
+  try { localStorage.setItem(storageKey(), JSON.stringify(state)); } catch (e) {}
+  publish();
+}
+
+function load() {
+  try {
+    let saved = JSON.parse(localStorage.getItem(storageKey()));
+    if (!saved && !room) {
+      // 舊版資料格式轉換
+      const old = JSON.parse(localStorage.getItem('split-bill-v1'));
+      if (old && Array.isArray(old.members)) saved = { members: old.members, expenses: old.expenses || [], settled: {} };
+    }
+    if (saved && Array.isArray(saved.members) && Array.isArray(saved.expenses)) state = normalize(saved);
+  } catch (e) {}
+}
+
+/* ---------- 多人同步 ---------- */
+const topic = () => 'chibao-split/v1/' + room;
+
+function publish() {
+  if (!client || !client.connected) return;
+  clearTimeout(pubTimer);
+  pubTimer = setTimeout(() => {
+    if (client && client.connected) client.publish(topic(), JSON.stringify(state), { qos: 1, retain: true });
+  }, 150);
+}
+
+function setStatus(text) { $('roomStatus').textContent = text; }
+
+function renderShare() {
+  $('shareOff').hidden = !!room;
+  $('shareOn').hidden = !room;
+  $('roomCode').textContent = room;
+}
+
+function onRemote(payload) {
+  let remote;
+  try { remote = JSON.parse(payload.toString()); } catch (e) { return; }
+  if (!remote || !Array.isArray(remote.members) || !Array.isArray(remote.expenses)) return;
+  const known = new Set(state.members.map(m => m.id));
+  const before = JSON.stringify(state);
+  const merged = mergeState(state, remote);
+  const after = JSON.stringify(merged);
+  if (after !== before) {
+    state = merged;
+    // 別人新加入的成員，預設也算進目前表單的分攤名單
+    if (!editingId) for (const m of members()) if (!known.has(m.id)) picked.add(m.id);
+    try { localStorage.setItem(storageKey(), after); } catch (e) {}
+    render();
+  }
+  // 對方缺少我這邊的資料時，把合併後的結果送回去
+  if (after !== JSON.stringify(normalize(remote))) publish();
+}
+
+function connect() {
+  renderShare();
+  if (!room) return;
+  if (typeof mqtt === 'undefined') { setStatus('🔴 無法載入同步元件，目前只會存在這台裝置'); return; }
+  setStatus('🟡 連線中…');
+  client = mqtt.connect(BROKER, { clientId: 'chibao_' + uid(), clean: true, reconnectPeriod: 3000, connectTimeout: 10000 });
+  client.on('connect', () => {
+    setStatus('🟢 已連線，即時同步中');
+    client.subscribe(topic(), { qos: 1 });
+    // 稍等一下讓房間現有的資料先進來，再送出自己的
+    setTimeout(publish, 1200);
+  });
+  client.on('message', (_, payload) => onRemote(payload));
+  client.on('reconnect', () => setStatus('🟡 重新連線中…'));
+  client.on('offline', () => setStatus('🔴 離線中，恢復網路後會自動同步'));
+  client.on('error', () => setStatus('🔴 連線失敗，稍後自動重試'));
+}
+
+function inviteLink() { return location.href.split('#')[0] + '#room=' + room; }
+
+async function copyText(text, okMsg) {
+  try {
+    await navigator.clipboard.writeText(text);
+  } catch (e) {
+    const ta = document.createElement('textarea');
+    ta.value = text;
+    document.body.appendChild(ta);
+    ta.select();
+    document.execCommand('copy');
+    ta.remove();
+  }
+  toast(okMsg);
+}
+
+/* ---------- 匯率 ---------- */
+async function loadRates() {
+  try {
+    const cached = JSON.parse(localStorage.getItem(RATE_KEY));
+    if (cached && cached.rates) { rates = cached.rates; rateDate = cached.date; }
+  } catch (e) {}
+  const today = new Date().toISOString().slice(0, 10);
+  if (rates && rateDate === today) return;
+  try {
+    const res = await fetch(RATE_API);
+    const data = await res.json();
+    if (data.result !== 'success') throw new Error('rate api failed');
+    rates = {};
+    for (const code in data.rates) rates[code] = 1 / data.rates[code];
+    rateDate = today;
+    try { localStorage.setItem(RATE_KEY, JSON.stringify({ rates, date: rateDate })); } catch (e) {}
+  } catch (e) {
+    // 抓不到匯率時保留舊的快取，沒有快取就讓使用者手動輸入
+  }
+  updateRateField(true);
+}
+
+function updateRateField(keepValue) {
+  const code = $('expCurrency').value;
+  const foreign = code !== 'TWD';
+  $('rateField').hidden = !foreign;
+  $('rateHint').hidden = !foreign;
+  if (!foreign) return;
+  $('rateCode').textContent = code;
+  if (!keepValue || !$('expRate').value) {
+    $('expRate').value = rates && rates[code] ? +rates[code].toFixed(4) : '';
+  }
+  $('rateHint').textContent = rates && rates[code]
+    ? `已自動帶入 ${rateDate} 的匯率，也可以自己修改成實際刷卡匯率。`
+    : '目前抓不到線上匯率，請手動輸入匯率。';
+}
+
+function updateServiceField() {
+  $('serviceCustomField').hidden = $('expService').value !== 'custom';
+}
+
+/* ---------- 計算 ---------- */
+function expenseTotal(e) {
+  return e.amount * (1 + servicePct(e) / 100) * (e.currency === 'TWD' ? 1 : e.rate);
+}
+
+function calculate() {
+  const rows = members().map(m => ({ id: m.id, name: m.name, paid: 0, owed: 0, net: 0 }));
+  const byId = Object.fromEntries(rows.map(r => [r.id, r]));
+  let total = 0;
+  for (const e of expenses()) {
+    const parts = e.participants.filter(p => byId[p]);
+    if (!parts.length || !byId[e.payer]) continue;
+    const t = expenseTotal(e);
+    total += t;
+    byId[e.payer].paid += t;
+    for (const p of parts) byId[p].owed += t / parts.length;
+  }
+  // 四捨五入到整數元，再把誤差補到差額最大的人身上，確保總和為 0
+  let sum = 0;
+  for (const r of rows) { r.net = Math.round(r.paid - r.owed); sum += r.net; }
+  if (sum !== 0 && rows.length) {
+    const big = rows.reduce((a, b) => Math.abs(b.net) > Math.abs(a.net) ? b : a);
+    big.net -= sum;
+  }
+  return { rows, total, transfers: settle(rows) };
+}
+
+// 每次讓欠最多的人付給被欠最多的人，轉帳次數最少化
+function settle(rows) {
+  const debtors = rows.filter(r => r.net < 0).map(r => ({ id: r.id, left: -r.net }));
+  const creditors = rows.filter(r => r.net > 0).map(r => ({ id: r.id, left: r.net }));
+  const out = [];
+  while (debtors.length && creditors.length) {
+    debtors.sort((a, b) => b.left - a.left);
+    creditors.sort((a, b) => b.left - a.left);
+    const d = debtors[0], c = creditors[0];
+    const amt = Math.min(d.left, c.left);
+    out.push({ from: d.id, to: c.id, amount: amt });
+    d.left -= amt; c.left -= amt;
+    if (d.left === 0) debtors.shift();
+    if (c.left === 0) creditors.shift();
+  }
+  return out;
+}
+
+/* ---------- 畫面 ---------- */
+function renderMembers() {
+  const list = members();
+  $('memberList').innerHTML = list.length
+    ? list.map(m => `<span class="chip">${esc(m.name)}<button type="button" data-rename="${esc(m.id)}" title="改名">✎</button><button type="button" data-remove="${esc(m.id)}" title="移除">×</button></span>`).join('')
+    : '<div class="empty" style="width:100%">先加入至少兩位成員吧！</div>';
+
+  const payer = $('expPayer').value;
+  $('expPayer').innerHTML = list.map(m => `<option value="${esc(m.id)}">${esc(m.name)}</option>`).join('');
+  if (list.some(m => m.id === payer)) $('expPayer').value = payer;
+
+  $('expParticipants').innerHTML = list.length
+    ? list.map(m => `<label class="pick ${picked.has(m.id) ? 'on' : ''}"><input type="checkbox" value="${esc(m.id)}" ${picked.has(m.id) ? 'checked' : ''}>${esc(m.name)}</label>`).join('')
+    : '<span class="hint">加入成員後才能選擇</span>';
+}
+
+function renderExpenses() {
+  const list = expenses();
+  if (!list.length) {
+    $('expenseList').innerHTML = '<div class="empty">還沒有任何消費，從上面新增第一筆吧。</div>';
+    return;
+  }
+  $('expenseList').innerHTML = list.map(e => {
+    const t = expenseTotal(e);
+    const extra = [];
+    if (e.currency !== 'TWD') extra.push(`${esc(e.currency)} ${esc(Number(e.amount).toLocaleString())} × ${esc(e.rate)}`);
+    if (servicePct(e)) extra.push(`含 ${esc(servicePct(e))}% 服務費`);
+    return `<div class="expense">
+      <div>
+        <div class="title">${esc(e.title)}</div>
+        <div class="meta">${esc(nameOf(e.payer))} 先付 · ${e.participants.map(p => esc(nameOf(p))).join('、')} 分攤（每人 ${money(t / e.participants.length)}）</div>
+      </div>
+      <div class="amt">${money(t)}
+        ${extra.length ? `<small>${extra.join(' · ')}</small>` : ''}
+        <div class="acts">
+          <button type="button" class="ghost small" data-edit="${esc(e.id)}">編輯</button>
+          <button type="button" class="ghost small" data-del="${esc(e.id)}">刪除</button>
+        </div>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+function renderResult() {
+  if (!expenses().length || members().length < 2) {
+    $('result').innerHTML = '<div class="empty">加入成員與消費後，這裡會自動算出誰該給誰多少錢。</div>';
+    return;
+  }
+  const { rows, total, transfers } = calculate();
+  const table = `<table>
+    <tr><th>成員</th><th>已付</th><th>應付</th><th>差額</th></tr>
+    ${rows.map(r => `<tr>
+      <td>${esc(r.name)}</td><td>${money(r.paid)}</td><td>${money(r.owed)}</td>
+      <td class="${r.net > 0 ? 'pos' : r.net < 0 ? 'neg' : ''}">${r.net > 0 ? '可收回 ' : r.net < 0 ? '要補 ' : ''}${money(Math.abs(r.net))}</td>
+    </tr>`).join('')}
+  </table>`;
+  const list = transfers.length
+    ? transfers.map(t => {
+        const key = `${t.from}>${t.to}>${t.amount}`;
+        const done = !!(state.settled[key] && state.settled[key].v);
+        return `<label class="transfer ${done ? 'done' : ''}">
+          <span class="check"><input type="checkbox" data-settle="${esc(key)}" ${done ? 'checked' : ''}>
+            <span><span class="who">${esc(nameOf(t.from))}</span><span class="arrow">➜</span><span class="who">${esc(nameOf(t.to))}</span></span>
+          </span>
+          <span class="money">${money(t.amount)}</span>
+        </label>`;
+      }).join('')
+    : '<div class="empty">🎉 大家剛好打平，不用轉帳！</div>';
+  $('result').innerHTML = `<p class="total">總花費 <b>${money(total)}</b></p>${table}
+    <h3 style="margin:18px 0 0;font-size:1rem">轉帳建議（共 ${transfers.length} 筆，付完可打勾）</h3>${list}`;
+}
+
+function render() {
+  renderMembers();
+  renderExpenses();
+  renderResult();
+}
+
+function resetForm() {
+  editingId = null;
+  $('expenseForm').reset();
+  picked = new Set(members().map(m => m.id));
+  $('formTitle').textContent = '新增一筆消費';
+  $('expSubmit').textContent = '加入這筆';
+  $('expCancel').hidden = true;
+  updateRateField();
+  updateServiceField();
+  renderMembers();
+}
+
+/* ---------- 事件 ---------- */
+$('roomCreate').addEventListener('click', () => {
+  room = Math.random().toString(36).slice(2, 10);
+  history.replaceState(null, '', '#room=' + room);
+  save();   // 把目前已填的內容帶進新房間
+  connect();
+  copyText(inviteLink(), '房間已建立，邀請連結已複製');
+});
+
+$('roomCopy').addEventListener('click', () => copyText(inviteLink(), '邀請連結已複製，貼到群組吧'));
+
+$('roomLeave').addEventListener('click', () => {
+  if (!confirm('離開後這台裝置不再同步，目前內容會保留一份在本機。確定離開嗎？')) return;
+  if (client) { client.end(true); client = null; }
+  room = '';
+  history.replaceState(null, '', location.pathname + location.search);
+  save();
+  renderShare();
+});
+
+// 在同一個分頁貼上別的房間連結時，重新載入以切換房間
+window.addEventListener('hashchange', () => location.reload());
+
+$('memberForm').addEventListener('submit', ev => {
+  ev.preventDefault();
+  const name = $('memberName').value.trim();
+  if (!name) return toast('請輸入名字');
+  if (members().some(m => m.name === name)) return toast('已經有這個名字了');
+  const m = { id: uid(), name, c: now(), t: now() };
+  state.members.push(m);
+  picked.add(m.id);
+  $('memberName').value = '';
+  save(); render();
+});
+
+$('memberList').addEventListener('click', ev => {
+  const { remove, rename } = ev.target.dataset;
+  if (rename) {
+    const m = state.members.find(x => x.id === rename);
+    if (!m) return;
+    const input = prompt('改成什麼名字？', m.name);
+    if (input === null) return;
+    const name = input.trim().slice(0, 12);
+    if (!name) return toast('名字不能是空白');
+    if (name === m.name) return;
+    if (members().some(x => x.id !== m.id && x.name === name)) return toast('已經有這個名字了');
+    m.name = name;
+    m.t = now();
+    save(); render();
+    toast('已改名');
+  } else if (remove) {
+    const used = expenses().some(e => e.payer === remove || e.participants.includes(remove));
+    if (used) return toast('這位成員還有消費紀錄，請先刪除相關項目');
+    const m = state.members.find(x => x.id === remove);
+    if (!m) return;
+    m.del = true;
+    m.t = now();
+    picked.delete(remove);
+    save(); render();
+  }
+});
+
+$('expParticipants').addEventListener('change', ev => {
+  const id = ev.target.value;
+  if (ev.target.checked) picked.add(id); else picked.delete(id);
+  ev.target.parentElement.classList.toggle('on', ev.target.checked);
+});
+
+$('expCurrency').addEventListener('change', () => updateRateField());
+$('expService').addEventListener('change', () => {
+  updateServiceField();
+  if ($('expService').value === 'custom') $('expServiceCustom').focus();
+});
+
+$('expenseForm').addEventListener('submit', ev => {
+  ev.preventDefault();
+  const title = $('expTitle').value.trim() || '未命名消費';
+  const amount = parseFloat($('expAmount').value);
+  const currency = $('expCurrency').value;
+  const rate = currency === 'TWD' ? 1 : parseFloat($('expRate').value);
+  const service = $('expService').value === 'custom' ? parseFloat($('expServiceCustom').value) : +$('expService').value;
+  const participants = members().filter(m => picked.has(m.id)).map(m => m.id);
+
+  if (members().length < 2) return toast('請先加入至少兩位成員');
+  if (!(amount > 0)) return toast('請輸入大於 0 的金額');
+  if (!(rate > 0)) return toast('請輸入匯率');
+  if (!(service >= 0 && service <= 100)) return toast('服務費請輸入 0～100 之間的數字');
+  if (!participants.length) return toast('至少要選一位分攤的人');
+
+  const data = { title, amount, currency, rate, payer: $('expPayer').value, participants, service, t: now(), del: false };
+  const target = editingId && state.expenses.find(e => e.id === editingId);
+  if (target) {
+    Object.assign(target, data);
+    toast('已更新');
+  } else {
+    state.expenses.push({ id: uid(), c: now(), ...data });
+    toast('已加入');
+  }
+  save(); resetForm(); render();
+});
+
+$('expCancel').addEventListener('click', resetForm);
+
+$('expenseList').addEventListener('click', ev => {
+  const { edit, del } = ev.target.dataset;
+  if (del) {
+    const e = state.expenses.find(x => x.id === del);
+    if (!e) return;
+    e.del = true;
+    e.t = now();
+    if (editingId === del) resetForm();
+    save(); render();
+  } else if (edit) {
+    const e = state.expenses.find(x => x.id === edit);
+    if (!e) return;
+    editingId = edit;
+    $('expTitle').value = e.title;
+    $('expAmount').value = e.amount;
+    $('expCurrency').value = e.currency;
+    $('expRate').value = e.rate;
+    const pct = servicePct(e);
+    if (SERVICE_PRESETS.includes(pct)) {
+      $('expService').value = String(pct);
+    } else {
+      $('expService').value = 'custom';
+      $('expServiceCustom').value = pct;
+    }
+    updateServiceField();
+    picked = new Set(e.participants);
+    renderMembers();
+    $('expPayer').value = e.payer;
+    updateRateField(true);
+    $('formTitle').textContent = '編輯消費';
+    $('expSubmit').textContent = '儲存修改';
+    $('expCancel').hidden = false;
+    $('expenseForm').scrollIntoView({ behavior: 'smooth', block: 'center' });
+  }
+});
+
+$('result').addEventListener('change', ev => {
+  const key = ev.target.dataset.settle;
+  if (!key) return;
+  state.settled[key] = { v: ev.target.checked, t: now() };
+  save(); renderResult();
+});
+
+$('copyBtn').addEventListener('click', () => {
+  if (!expenses().length) return toast('還沒有可以複製的結果');
+  const { total, transfers } = calculate();
+  const lines = ['🍜 吃飽分帳結果', `總花費：${money(total)}`, '', '【明細】'];
+  for (const e of expenses()) lines.push(`・${e.title} ${money(expenseTotal(e))}（${nameOf(e.payer)} 先付）`);
+  lines.push('', '【轉帳】');
+  if (transfers.length) for (const t of transfers) lines.push(`・${nameOf(t.from)} ➜ ${nameOf(t.to)}：${money(t.amount)}`);
+  else lines.push('大家剛好打平，不用轉帳！');
+  copyText(lines.join('\n'), '已複製，可以貼到 LINE 群組了');
+});
+
+function clearAll() {
+  const t = now();
+  for (const x of [...state.members, ...state.expenses]) if (!x.del) { x.del = true; x.t = t; }
+}
+
+$('demoBtn').addEventListener('click', () => {
+  if ((expenses().length || members().length) && !confirm('載入範例會取代目前的資料' + (room ? '（房間裡所有人都會被取代）' : '') + '，確定嗎？')) return;
+  clearAll();
+  const t = now();
+  const [a, b, c, d] = ['小明', '小華', '阿美', '大雄'].map((name, i) => ({ id: uid(), name, c: t + i, t }));
+  const exp = (i, title, amount, payer, participants, service) =>
+    ({ id: uid(), c: t + i, t, del: false, title, amount, currency: 'TWD', rate: 1, payer, participants, service });
+  state.members.push(a, b, c, d);
+  state.expenses.push(
+    exp(0, '麻辣火鍋', 2400, a.id, [a.id, b.id, c.id, d.id], 10),
+    exp(1, '手搖飲', 195, b.id, [a.id, b.id, c.id], 0),
+    exp(2, 'KTV 包廂', 1600, c.id, [a.id, b.id, c.id, d.id], 15)
+  );
+  save(); resetForm(); render();
+  toast('已載入範例資料');
+});
+
+$('resetBtn').addEventListener('click', () => {
+  if (!confirm('確定要清空所有成員和消費嗎？' + (room ? '房間裡所有人的畫面都會被清空。' : ''))) return;
+  clearAll();
+  save(); resetForm(); render();
+});
+
+load();
+picked = new Set(members().map(m => m.id));
+render();
+connect();
+loadRates();
+</script>
+</body>
+</html>
